@@ -464,7 +464,18 @@ def analyze_changes(
     overall_risk = max((nr["risk_score"] for nr in node_risks), default=0.0)
 
     # Affected flows.
-    affected = get_affected_flows(store, changed_files)
+    # Git reports changed files relative to repo_root, while graph nodes
+    # store normalized paths rooted at the repository. Normalize the paths
+    # here so flow impact analysis uses the same identity as the graph.
+    flow_changed_files = changed_files
+    if repo_root is not None:
+        root_path = Path(repo_root)
+        flow_changed_files = [
+            normalize_file_path(root_path / path)
+            for path in changed_files
+        ]
+
+    affected = get_affected_flows(store, flow_changed_files)
 
     # Detect test gaps: changed functions without TESTED_BY edges.
     test_gaps: list[dict[str, Any]] = []

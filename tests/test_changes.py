@@ -403,6 +403,43 @@ class TestChanges:
         )
         assert len(result["affected_flows"]) >= 1
 
+    def test_analyze_changes_normalizes_relative_paths_for_affected_flows(self):
+        """Affected flows resolve when Git paths are relative but graph paths are absolute."""
+        repo_root = Path("/fake/repo")
+
+        self._add_func(
+            "handler",
+            path="/fake/repo/src/routes.py",
+            line_start=1,
+            line_end=10,
+        )
+        self._add_func(
+            "service",
+            path="/fake/repo/src/services.py",
+            line_start=1,
+            line_end=10,
+        )
+        self._add_call(
+            "/fake/repo/src/routes.py::handler",
+            "/fake/repo/src/services.py::service",
+            "/fake/repo/src/routes.py",
+        )
+
+        flows = trace_flows(self.store)
+        store_flows(self.store, flows)
+
+        result = analyze_changes(
+            self.store,
+            changed_files=["src/services.py"],
+            changed_ranges={
+                "/fake/repo/src/services.py": [(1, 10)],
+            },
+            repo_root=str(repo_root),
+        )
+
+        assert result["affected_flows"]
+        assert result["affected_flows"][0]["name"] == "handler"
+
     def test_analyze_changes_review_priorities_ordered(self):
         """Review priorities are ordered by descending risk score."""
         # Create several functions with varying risk levels.
